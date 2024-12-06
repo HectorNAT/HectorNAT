@@ -1,0 +1,561 @@
+Este es el Query correspondiente al A6:
+
+create or replace PROCEDURE A6 AS
+
+v_1mesatras VARCHAR2(25):=TO_CHAR(ADD_MONTHS(SYSDATE-1,-1),'YYYYMM');
+
+v_2mesatras VARCHAR2(25):=TO_CHAR(ADD_MONTHS(SYSDATE-1,-2),'YYYYMM');
+
+v_3mesatras VARCHAR2(25):=TO_CHAR(ADD_MONTHS(SYSDATE-1,-3),'YYYYMM');
+
+v_4mesatras VARCHAR2(25):=TO_CHAR(ADD_MONTHS(SYSDATE-1,-4),'YYYYMM');
+
+BEGIN
+
+SYS.DBMS_STATS.GATHER_TABLE_STATS('SRBD', 'UNIVERSE_A6');
+
+--SELECT * FROM universe_a6; --7884
+
+MERGE INTO UNIVERSE_A6 A  --Este bloque traera fuerza de venta,imei e iccid
+
+USING INVENTARIO_SIAP B   --donde el telefono del universo proporcionado por Dpto.comisiones sea igual al inventario actual
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET
+
+A.fuerza_vta=desc_fzavta(B.distribuidor_id),
+
+A.imei=B.imei,
+
+A.iccid=B.iccid;
+
+COMMIT;  --7883
+
+MERGE INTO UNIVERSE_A6 A
+
+USING (SELECT * FROM inventario_siap_historico WHERE archivo_del_mes=v_1mesatras) B --un mes antes de inventario siap
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET
+
+A.fuerza_vta=desc_fzavta(B.distribuidor_id),
+
+A.imei=B.imei,
+
+A.iccid=B.iccid
+
+WHERE   A.fuerza_vta IS NULL AND A.imei IS NULL AND A.iccid IS NULL;
+
+COMMIT;
+
+MERGE INTO UNIVERSE_A6 A
+
+USING (SELECT * FROM inventario_siap_historico WHERE archivo_del_mes=v_2mesatras) B --2 meses antes de inventario siap
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET
+
+A.fuerza_vta=desc_fzavta(B.distribuidor_id),
+
+A.imei=B.imei,
+
+A.iccid=B.iccid
+
+WHERE   A.fuerza_vta IS NULL AND A.imei IS NULL AND A.iccid IS NULL;
+
+COMMIT;
+
+MERGE INTO UNIVERSE_A6 A
+
+USING (SELECT * FROM inventario_siap_historico WHERE archivo_del_mes=v_3mesatras)B --3 meses antes de inventario siap
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET
+
+A.fuerza_vta=desc_fzavta(B.distribuidor_id),
+
+A.imei=B.imei,
+
+A.iccid=B.iccid
+
+WHERE   A.fuerza_vta IS NULL AND A.imei IS NULL AND A.iccid IS NULL;
+
+COMMIT;
+
+MERGE INTO UNIVERSE_A6 A
+
+USING (SELECT * FROM inventario_siap_historico WHERE archivo_del_mes=v_4mesatras)B --4 meses antes de inventario siap
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET
+
+A.fuerza_vta=desc_fzavta(B.distribuidor_id),
+
+A.imei=B.imei,
+
+A.iccid=B.iccid
+
+WHERE   A.fuerza_vta IS NULL AND A.imei IS NULL AND A.iccid IS NULL;
+
+COMMIT;
+
+MERGE INTO UNIVERSE_A6 A  -----SUBSCRIBER ACTUAL
+
+USING (SELECT * FROM gsm_subscriber)B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET
+
+A.first_call_indicator=B.first_call_indicator,
+
+A.estatus=DESC_ST_SSE(B.lc_status);
+
+COMMIT;--7884
+
+MERGE INTO UNIVERSE_A6 A
+
+USING (SELECT * FROM gsm_sse_historico WHERE archivo_del_mes=v_1mesatras)B ---SE VA A LA SSE DEL MES ANT
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET
+
+A.first_call_indicator=B.first_call_indicator,
+
+A.estatus=DESC_ST_SSE(B.lc_status)
+
+WHERE A.first_call_indicator IS NULL;
+
+COMMIT;
+
+MERGE INTO UNIVERSE_A6 A
+
+USING (SELECT * FROM gsm_sse_historico WHERE archivo_del_mes=v_2mesatras)B ---SE VA A LA SSE DE 2 MESES ANT
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET
+
+A.first_call_indicator=B.first_call_indicator,
+
+A.estatus=DESC_ST_SSE(B.lc_status)
+
+WHERE A.first_call_indicator IS NULL;
+
+COMMIT;
+
+MERGE INTO UNIVERSE_A6 A
+
+USING (SELECT * FROM gsm_sse_historico WHERE archivo_del_mes=v_3mesatras)B ---SE VA A LA SSE DE 3 MESES ANT
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET
+
+A.first_call_indicator=B.first_call_indicator,
+
+A.estatus=DESC_ST_SSE(B.lc_status)
+
+WHERE A.first_call_indicator IS NULL;
+
+COMMIT;
+
+MERGE INTO UNIVERSE_A6 A
+
+USING (SELECT * FROM gsm_sse_historico WHERE archivo_del_mes=v_4mesatras)B ---SE VA A LA SSE DE 4 MESES ANT
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET
+
+A.first_call_indicator=B.first_call_indicator,
+
+A.estatus=DESC_ST_SSE(B.lc_status)
+
+WHERE A.first_call_indicator IS NULL;
+
+COMMIT;
+
+MERGE INTO UNIVERSE_A6 A             --trae fuerza de venta padre
+
+USING pp_canal B
+
+ON (A.fuerza_vta=TRIM(B.clave))
+
+WHEN MATCHED THEN UPDATE
+
+SET A.padre=B.padre;
+
+COMMIT; --7884
+
+MERGE INTO UNIVERSE_A6 A  ---este es para completar datos
+
+USING cat_dist_siantel B
+
+ON (A.fuerza_vta=TRIM(B.fzavta))
+
+WHEN MATCHED THEN UPDATE
+
+SET A.padre=B.fpadre
+
+WHERE A.padre IS NULL;
+
+COMMIT;
+
+SYS.DBMS_STATS.GATHER_TABLE_STATS('SRBD', 'UNIVERSE_A6');
+
+DELETE RECARGAS_A6;  --borra recargas
+
+COMMIT;
+
+INSERT INTO RECARGAS_A6 (numero_fila,numero_veces,msisdn,fecha_recarga,suma_montos) --inserta recargas
+
+SELECT row_number() OVER(ORDER BY msisdn ASC) AS numero_fila,row_number() OVER(PARTITION BY msisdn ORDER BY fecha_recarga ASC) AS numero_veces,msisdn, fecha_recarga, mto_rec suma_montos
+
+FROM (SELECT r.msisdn,r.transaction_time as fecha_recarga, r.refill_amount mto_rec FROM gsm_replenish R
+
+INNER JOIN UNIVERSE_A6 T
+
+ON R.msisdn = T.msisdn
+
+WHERE R.transaction_time > TO_DATE(T.activacion) - 1/(24*60*60)
+
+UNION ALL
+
+SELECT  P.access_number, P.creation_date, P.total_payment_amount mto_rec
+
+FROM gsm_payment P
+
+INNER JOIN UNIVERSE_A6 T
+
+ON P.access_number = T.msisdn
+
+WHERE P.creation_date > TO_DATE(T.activacion) - 1/(24*60*60)
+
+AND ((P.card_group IN (SELECT voucher_group FROM cat_voucher_group WHERE venta=1 AND payment_allocation_method IS NULL)
+
+AND P.updatedby_id IN (SELECT updatedby_id FROM cat_updatedby_id WHERE venta=1))
+
+OR
+
+(P.card_group IN (SELECT voucher_group FROM cat_voucher_group WHERE venta=1 AND payment_allocation_method IS NOT NULL)
+
+AND P.payment_allocation_method IN (SELECT payment_allocation_method FROM cat_voucher_group WHERE venta=1 AND payment_allocation_method IS NOT NULL)))
+
+)pagos;
+
+COMMIT;
+
+SYS.DBMS_STATS.GATHER_TABLE_STATS('SRBD', 'RECARGAS_A6');
+
+--monto_acumulado a 30 dias
+
+MERGE INTO UNIVERSE_A6 A  --plancha monto a 30 dias
+
+USING (SELECT A.msisdn,SUM(A.suma_montos)TOTAL FROM RECARGAS_A6 A
+
+INNER JOIN UNIVERSE_A6 B
+
+ON A.msisdn=B.msisdn
+
+WHERE TRUNC(A.FECHA_RECARGA) BETWEEN TRUNC(B.activacion) AND TRUNC(B.activacion+29)
+
+GROUP BY A.msisdn) B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.monto_30=B.total;
+
+COMMIT;  --7884
+
+--monto_acumulado de 31 dias a 60
+
+MERGE INTO UNIVERSE_A6 A --plancha monto de 31 a 60 dias
+
+USING (SELECT A.msisdn,SUM(A.suma_montos)TOTAL FROM RECARGAS_A6 A
+
+INNER JOIN UNIVERSE_A6 B
+
+ON A.msisdn=B.msisdn
+
+WHERE TRUNC(A.FECHA_RECARGA) BETWEEN TRUNC(B.activacion+30) AND TRUNC(B.activacion+59)
+
+GROUP BY A.msisdn) B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.monto_31_60=B.total;
+
+COMMIT;  --3801
+
+--monto_acumulado de 61 dias a 90
+
+MERGE INTO UNIVERSE_A6 A --plancha monto de 61 a 90 dias
+
+USING (SELECT A.msisdn,SUM(A.suma_montos)TOTAL FROM RECARGAS_A6 A
+
+INNER JOIN UNIVERSE_A6 B
+
+ON A.msisdn=B.msisdn
+
+WHERE TRUNC(A.FECHA_RECARGA) BETWEEN TRUNC(B.activacion+60) AND TRUNC(B.activacion+89)
+
+GROUP BY A.msisdn) B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.monto_61_90=B.total;
+
+COMMIT; --345
+
+--monto_acumulado de 91 dias a 120
+
+MERGE INTO UNIVERSE_A6 A --plancha monto de 91 a 120 dias
+
+USING (SELECT A.msisdn,SUM(A.suma_montos)TOTAL FROM RECARGAS_A6 A
+
+INNER JOIN UNIVERSE_A6 B
+
+ON A.msisdn=B.msisdn
+
+WHERE TRUNC(A.FECHA_RECARGA) BETWEEN TRUNC(B.activacion+90) AND TRUNC(B.activacion+119)
+
+GROUP BY A.msisdn) B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.monto_91_120=B.total;
+
+COMMIT; --48
+
+--update de fecha primera recarga
+
+MERGE INTO UNIVERSE_A6 A --plancha fecha 1era recarga
+
+USING (SELECT msisdn,fecha_recarga FROM RECARGAS_A6 WHERE numero_veces=1)B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.fecha_primera_recarga = B.fecha_recarga;
+
+COMMIT; --7884
+
+--update de fecha segunda recarga
+
+MERGE INTO UNIVERSE_A6 A --plancha fecha 2da recarga
+
+USING (SELECT msisdn,fecha_recarga FROM RECARGAS_A6 WHERE numero_veces=2)B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.fecha_2da_recarga = B.fecha_recarga;
+
+COMMIT; --4935
+
+--update de fecha tercera recarga
+
+MERGE INTO UNIVERSE_A6 A --plancha fecha 3era recarga
+
+USING (SELECT msisdn,fecha_recarga FROM RECARGAS_A6 WHERE numero_veces=3)B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.fecha_3ra_recarga = B.fecha_recarga;
+
+COMMIT; --1015
+
+--update de fecha 4ta recarga
+
+MERGE INTO UNIVERSE_A6 A --plancha fecha 4ta recarga
+
+USING (SELECT msisdn,fecha_recarga FROM RECARGAS_A6 WHERE numero_veces=4)B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.fecha_4ta_recarga = B.fecha_recarga;
+
+COMMIT; --487
+
+SYS.DBMS_STATS.GATHER_TABLE_STATS('SRBD', 'UNIVERSE_A6');
+
+/*
+
+UPDATE UNIVERSE_A6
+
+SET estatus='BAJA'
+
+WHERE msisdn NOT IN(SELECT msisdn FROM GSM_SUBSCRIBER);
+
+COMMIT;
+
+YA VEMOS ESTE
+
+*/
+
+---TRAE TRAFICO A 30 DIAS
+
+MERGE INTO UNIVERSE_A6 A
+
+USING  A6_TRAF30 B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.dia_trafico=B.totdias,
+
+A.minuto_trafico=B.minutos;
+
+COMMIT;  --7615
+
+---TRAE TRAFICO A 60 DIAS
+
+MERGE INTO UNIVERSE_A6 A
+
+USING  A6_TRAF60 B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.dia_trafico_31_60=B.totdias,
+
+A.minuto_trafico__31_60=B.minutos;
+
+COMMIT; --1043
+
+---TRAE TRAFICO A 90 DIAS
+
+MERGE INTO UNIVERSE_A6 A
+
+USING  A6_TRAF90 B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.dia_trafico_61_90=B.totdias,
+
+A.minuto_trafico_61_90=B.minutos;
+
+COMMIT; --177
+
+---TRAE TRAFICO A 120 DIAS
+
+MERGE INTO UNIVERSE_A6 A
+
+USING  A6_TRAF120 B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.dia_trafico_91_120=B.totdias,
+
+A.minuto_trafico_91_120=B.minutos;
+
+COMMIT;  --39
+
+UPDATE UNIVERSE_A6        --inicializa etiquetas todas con NO
+
+SET R15_6_30='NO',
+
+R15_6_31_60='NO',
+
+R15_6_61_90='NO',
+
+R15_6_91_120='NO';
+
+COMMIT;
+
+MERGE INTO UNIVERSE_A6 A  --plancha etiqueta si 30 dias
+
+USING(SELECT * FROM A6_TRAF30)B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.R15_6_30='SI';
+
+COMMIT; --7615
+
+MERGE INTO UNIVERSE_A6 A  --plancha etiqueta si 31-60 dias
+
+USING(SELECT * FROM A6_TRAF60)B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.R15_6_31_60='SI';
+
+COMMIT; --1043
+
+MERGE INTO UNIVERSE_A6 A  --plancha etiqueta si 61-90 dias
+
+USING(SELECT * FROM A6_TRAF90)B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.R15_6_61_90='SI';
+
+COMMIT; --177
+
+MERGE INTO UNIVERSE_A6 A --plancha etiqueta si 91-120 dias
+
+USING(SELECT * FROM A6_TRAF120)B
+
+ON (A.msisdn=B.msisdn)
+
+WHEN MATCHED THEN UPDATE
+
+SET A.R15_6_91_120='SI';
+
+COMMIT; --39
+
+END A6;
